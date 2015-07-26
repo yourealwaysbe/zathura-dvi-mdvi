@@ -110,7 +110,6 @@ plugin_document_free(zathura_document_t* document,
         mdvi_destroy_context (doc->context);
     
     if (doc->context) { 
-        mdvi_cairo_device_free (&doc->context->device);
         mdvi_destroy_context (doc->context);
     }
 	g_mutex_unlock (&dvi_context_mutex);
@@ -216,7 +215,7 @@ plugin_page_render_cairo(zathura_page_t *page,
                   zathura_page_get_index(page));
    
     /* calculate sizes */
-    double scale = zathura_document_get_scale(document);
+    gdouble scale = zathura_document_get_scale(document);
 
     unsigned int page_width  = ceil(scale * zathura_page_get_width(page));
     unsigned int page_height = ceil(scale * zathura_page_get_height(page));
@@ -240,16 +239,9 @@ plugin_page_render_cairo(zathura_page_t *page,
                                    xmargin, 
                                    ymargin);
     mdvi_cairo_device_set_scale (&dvi_document->context->device, 
-                                 1/scale, 
-                                 1/scale);
-    mdvi_cairo_device_render (dvi_document->context);
-    cairo_surface_t *surface = mdvi_cairo_device_get_surface (&dvi_document->context->device);
-
-    cairo_scale (cairo, 1/scale, 1/scale);
-    cairo_set_source_surface (cairo, surface, 0, 0); 
-    cairo_paint (cairo);
-
-    cairo_surface_destroy (surface);
+                                 1.0/scale, 
+                                 1.0/scale);
+    mdvi_cairo_device_render (dvi_document->context, cairo);
 
     g_mutex_unlock (&dvi_context_mutex);
 

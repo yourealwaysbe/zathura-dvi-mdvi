@@ -29,7 +29,7 @@ G_BEGIN_DECLS
 void             mdvi_cairo_device_init        (DviDevice *device);
 void             mdvi_cairo_device_free        (DviDevice *device);
 cairo_surface_t *mdvi_cairo_device_get_surface (DviDevice *device);
-void             mdvi_cairo_device_render      (DviContext* dvi);
+void             mdvi_cairo_device_render      (DviContext* dvi, cairo_t *cairo);
 void             mdvi_cairo_device_set_margins (DviDevice *device,
                         gint       xmargin,
                         gint       ymargin);

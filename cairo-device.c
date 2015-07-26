@@ -71,6 +71,7 @@ dvi_cairo_draw_glyph (DviContext  *dvi,
         return;
 
     cairo_save (cairo_device->cr);
+    cairo_scale (cairo_device->cr, cairo_device->xscale, cairo_device->yscale);
     if (isbox) {
         cairo_rectangle (cairo_device->cr,
                  x - cairo_device->xmargin,
@@ -319,29 +320,16 @@ mdvi_cairo_device_get_surface (DviDevice *device)
 }
 
 void
-mdvi_cairo_device_render (DviContext* dvi)
+mdvi_cairo_device_render (DviContext* dvi, cairo_t *cairo)
 {
     DviCairoDevice  *cairo_device;
-    gint             page_width;
-    gint             page_height;
-    cairo_surface_t *surface;
 
     cairo_device = (DviCairoDevice *) dvi->device.device_data;
 
-    if (cairo_device->cr)
-        cairo_destroy (cairo_device->cr);
+    cairo_device->cr = cairo; 
 
-    page_width = dvi->dvi_page_w * dvi->params.conv + 2 * cairo_device->xmargin;
-    page_height = dvi->dvi_page_h * dvi->params.vconv + 2 * cairo_device->ymargin;
-
-    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-                                              page_width, page_height);
-
-    cairo_device->cr = cairo_create (surface);
-        cairo_surface_destroy (surface);
-
-        cairo_set_source_rgb (cairo_device->cr, 1., 1., 1.);
-        cairo_paint (cairo_device->cr);
+    cairo_set_source_rgb (cairo_device->cr, 1., 1., 1.);
+    cairo_paint (cairo_device->cr);
 
     mdvi_dopage (dvi, dvi->currpage);
 }
