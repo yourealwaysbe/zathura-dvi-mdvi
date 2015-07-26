@@ -40,8 +40,8 @@ zathura_error_t
 plugin_document_open (zathura_document_t *document);
 
 zathura_error_t
-plugin_document_free(zathura_document_t* document, 
-                     void *dvi_document);
+plugin_document_free (zathura_document_t* document, 
+                      void *dvi_document);
 
 zathura_error_t
 plugin_page_init(zathura_page_t* page);
@@ -96,20 +96,26 @@ struct _DviDocument
 
 static void
 dvi_document_init_params (DviDocument *dvi_document);
+static void
+dvi_document_free (DviDocument *dvi_document);
 
 zathura_error_t
 plugin_document_free(zathura_document_t* document, 
                      void *dvi_document)
 {
     DviDocument *doc = (DviDocument*)dvi_document;
-    if (!dvi_document)
-        return ZATHURA_ERROR_OK; 
+    dvi_document_free (doc);
+    return ZATHURA_ERROR_OK;
+}
+
+static void dvi_document_free (DviDocument *doc)
+{
+    if (!doc)
+        return; 
 
 	g_mutex_lock (&dvi_context_mutex);
-    if (doc->context)
-        mdvi_destroy_context (doc->context);
-    
-    if (doc->context) { 
+    if (doc->context) {
+		mdvi_cairo_device_free (&doc->context->device);
         mdvi_destroy_context (doc->context);
     }
 	g_mutex_unlock (&dvi_context_mutex);
@@ -117,8 +123,12 @@ plugin_document_free(zathura_document_t* document,
     if (doc->params)
         g_free (doc->params);
 
-    return ZATHURA_ERROR_OK;
+    if (doc->spec)
+        g_free (doc->spec);
+
+    g_free (doc);
 }
+
 
 zathura_error_t
 plugin_document_open (zathura_document_t *document)
@@ -130,7 +140,7 @@ plugin_document_open (zathura_document_t *document)
 	//mdvi_register_special ("Color", "color", NULL, dvi_document_do_color_special, 1);
 	mdvi_register_fonts ();
 
-    DviDocument *dvi_document = g_new0(DviDocument, 1);
+    DviDocument *dvi_document = g_new0 (DviDocument, 1);
 
     dvi_document->context = NULL;
     dvi_document_init_params (dvi_document);
@@ -141,10 +151,10 @@ plugin_document_open (zathura_document_t *document)
     dvi_document->context = mdvi_init_context(dvi_document->params, 
                                               dvi_document->spec, 
                                               path);
-
 	g_mutex_unlock (&dvi_context_mutex);
 
     if (!dvi_document->context) {
+        dvi_document_free (dvi_document);
         return ZATHURA_ERROR_UNKNOWN;
     }
 

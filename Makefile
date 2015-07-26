@@ -18,8 +18,8 @@ CPPFLAGS += "-DVERSION_MAJOR=${VERSION_MAJOR}"
 CPPFLAGS += "-DVERSION_MINOR=${VERSION_MINOR}"
 CPPFLAGS += "-DVERSION_REV=${VERSION_REV}"
 
-CPPFLAGS += "-g2"
-CFLAGS += "-g2"
+DFLAGS += -g3 -O0
+LDFLAGS += -g
 
 all: options ${PLUGIN}.so
 
@@ -43,7 +43,7 @@ options:
 
 %.do: %.c
 	$(ECHO) CC $<
-	@mkdir -p .depend
+	@mkdir -p $(shell dirname .depend/$@)
 	$(QUIET)${CC} -c ${CPPFLAGS} ${CFLAGS} ${DFLAGS} -o $@ $< -MMD -MF .depend/$@.dep
 
 ${OBJECTS}:  config.mk zathura-version-check

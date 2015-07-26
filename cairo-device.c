@@ -303,9 +303,6 @@ mdvi_cairo_device_free (DviDevice *device)
 
     cairo_device = (DviCairoDevice *) device->device_data;
 
-    if (cairo_device->cr)
-        cairo_destroy (cairo_device->cr);
-
     g_free (cairo_device);
 }
 
