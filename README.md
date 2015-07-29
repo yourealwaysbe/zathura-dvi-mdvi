@@ -8,6 +8,14 @@ Port of [Evince](https://wiki.gnome.org/Apps/Evince)'s DVI backend to
 
 This is still a work in progress.
 
+DEPENDENCIES
+============
+
+Incomplete list:
+
+    + [Cairo](http://cairographics.org/)
+    + [Kpathsea](https://www.tug.org/texinfohtml/kpathsea.html)
+    + [Zathura](https://pwmt.org/projects/zathura/)
 
 BUILD + INSTALL
 ===============
