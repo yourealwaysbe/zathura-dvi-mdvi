@@ -13,9 +13,9 @@ DEPENDENCIES
 
 Incomplete list:
 
-    + [Cairo](http://cairographics.org/)
-    + [Kpathsea](https://www.tug.org/texinfohtml/kpathsea.html)
-    + [Zathura](https://pwmt.org/projects/zathura/)
+* [Cairo](http://cairographics.org/)
+* [Kpathsea](https://www.tug.org/texinfohtml/kpathsea.html)
+* [Zathura](https://pwmt.org/projects/zathura/)
 
 BUILD + INSTALL
 ===============
