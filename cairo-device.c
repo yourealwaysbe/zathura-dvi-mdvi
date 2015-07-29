@@ -113,9 +113,10 @@ dvi_cairo_draw_rule (DviContext *dvi,
                   ((color >> 0) & 0xff) / 255.);
 
     cairo_rectangle (cairo_device->cr,
-             (x + cairo_device->xmargin) / cairo_device->xscale,
-             (y + cairo_device->ymargin) / cairo_device->yscale,
-             width / cairo_device->xscale, height / cairo_device->yscale);
+                     x + cairo_device->xmargin,
+                     y + cairo_device->ymargin,
+                     width, 
+                     height);
     if (fill == 0) {
         cairo_stroke (cairo_device->cr);
     } else {
@@ -178,7 +179,7 @@ dvi_cairo_draw_ps (DviContext *dvi,
                              row_length);
 
     cairo_save (cairo_device->cr);
-
+    cairo_scale (cairo_device->cr, cairo_device->xscale, cairo_device->yscale);
     cairo_translate (cairo_device->cr,
              x + cairo_device->xmargin,
              y + cairo_device->ymargin);
