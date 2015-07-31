@@ -21,6 +21,7 @@
 #define _COLOR_H_
 
 #include "common.h"
+#include "mdvi.h"
 
 extern Ulong    *get_color_table(DviDevice *dev,
                  int nlevels, Ulong fg, Ulong bg, double gamma, int density);

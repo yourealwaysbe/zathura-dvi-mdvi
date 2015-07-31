@@ -22,6 +22,7 @@
 
 #include "texmfcnf.h"
 
+#include "mdvi-lib/color.h"
 #include "mdvi-lib/mdvi.h"
 #include "fonts.h"
 #include "cairo-device.h"
@@ -108,17 +109,21 @@ plugin_document_free(zathura_document_t* document,
     return ZATHURA_ERROR_OK;
 }
 
+static void dvi_document_do_color_special (DviContext *dvi,
+                                           const char *prefix,
+                                           const char *arg);
+
 static void dvi_document_free (DviDocument *doc)
 {
     if (!doc)
         return; 
 
-	g_mutex_lock (&dvi_context_mutex);
+    g_mutex_lock (&dvi_context_mutex);
     if (doc->context) {
-		mdvi_cairo_device_free (&doc->context->device);
+        mdvi_cairo_device_free (&doc->context->device);
         mdvi_destroy_context (doc->context);
     }
-	g_mutex_unlock (&dvi_context_mutex);
+    g_mutex_unlock (&dvi_context_mutex);
 
     if (doc->params)
         g_free (doc->params);
@@ -133,12 +138,12 @@ static void dvi_document_free (DviDocument *doc)
 zathura_error_t
 plugin_document_open (zathura_document_t *document)
 {
-	gchar *texmfcnf = get_texmfcnf();
-	mdvi_init_kpathsea ("zathura", MDVI_MFMODE, MDVI_FALLBACK_FONT, MDVI_DPI, texmfcnf);
-	g_free(texmfcnf);
+    gchar *texmfcnf = get_texmfcnf();
+    mdvi_init_kpathsea ("zathura", MDVI_MFMODE, MDVI_FALLBACK_FONT, MDVI_DPI, texmfcnf);
+    g_free(texmfcnf);
 
-	//mdvi_register_special ("Color", "color", NULL, dvi_document_do_color_special, 1);
-	mdvi_register_fonts ();
+    mdvi_register_special ("Color", "color", NULL, dvi_document_do_color_special, 1);
+    mdvi_register_fonts ();
 
     DviDocument *dvi_document = g_new0 (DviDocument, 1);
 
@@ -151,7 +156,7 @@ plugin_document_open (zathura_document_t *document)
     dvi_document->context = mdvi_init_context(dvi_document->params, 
                                               dvi_document->spec, 
                                               path);
-	g_mutex_unlock (&dvi_context_mutex);
+    g_mutex_unlock (&dvi_context_mutex);
 
     if (!dvi_document->context) {
         dvi_document_free (dvi_document);
@@ -219,7 +224,7 @@ plugin_page_render_cairo(zathura_page_t *page,
 
     DviDocument* dvi_document = zathura_document_get_data (document);
     
-	g_mutex_lock (&dvi_context_mutex);
+    g_mutex_lock (&dvi_context_mutex);
 
     mdvi_setpage (dvi_document->context, 
                   zathura_page_get_index(page));
@@ -233,7 +238,7 @@ plugin_page_render_cairo(zathura_page_t *page,
     unsigned int proposed_width =  dvi_document->context->dvi_page_w * dvi_document->context->params.conv;
     unsigned int proposed_height = dvi_document->context->dvi_page_h * dvi_document->context->params.vconv;
 
-	mdvi_set_shrink (dvi_document->context, 
+    mdvi_set_shrink (dvi_document->context, 
                      (int)((dvi_document->params->hshrink - 1) / scale) + 1,
                      (int)((dvi_document->params->vshrink - 1) / scale) + 1);
 
@@ -280,4 +285,158 @@ dvi_document_init_params (DviDocument *dvi_document)
     dvi_document->params->bg = 0xffffffff;
     dvi_document->params->fg = 0xff000000;
 }
+
+
+#define RGB2ULONG(r,g,b) ((0xFF<<24)|(r<<16)|(g<<8)|(b))
+
+static gboolean
+hsb2rgb (float h, float s, float v, guchar *red, guchar *green, guchar *blue)
+{
+        float f, p, q, t, r, g, b;
+        int i;
+
+        s /= 100;
+        v /= 100;
+        h /= 60;
+        i = floor (h);
+        if (i == 6)
+                i = 0;
+        else if ((i > 6) || (i < 0))
+                return FALSE;
+        f = h - i;
+        p = v * (1 - s);
+        q = v * (1 - (s * f));
+        t = v * (1 - (s * (1 - f)));
+
+    if (i == 0) {
+        r = v;
+        g = t;
+        b = p;
+    } else if (i == 1) {
+        r = q;
+        g = v;
+        b = p;
+    } else if (i == 2) {
+        r = p;
+        g = v;
+        b = t;
+    } else if (i == 3) {
+        r = p;
+        g = q;
+        b = v;
+    } else if (i == 4) {
+        r = t;
+        g = p;
+        b = v;
+    } else if (i == 5) {
+        r = v;
+        g = p;
+        b = q;
+    }
+
+        *red   = (guchar)floor(r * 255.0);
+        *green = (guchar)floor(g * 255.0);
+        *blue  = (guchar)floor(b * 255.0);
+    
+        return TRUE;
+}
+
+
+
+static void
+parse_color (const gchar *ptr,
+         gdouble     *color,
+         gint         n_color)
+{
+    gchar *p = (gchar *)ptr;
+    gint   i;
+
+    for (i = 0; i < n_color; i++) {
+        while (isspace (*p)) p++;
+        color[i] = g_ascii_strtod (p, NULL);
+        while (!isspace (*p) && *p != '\0') p++;
+        if (*p == '\0')
+            break;
+    }
+}
+
+
+static void
+dvi_document_do_color_special (DviContext *dvi, const char *prefix, const char *arg)
+{
+    if (strncmp (arg, "pop", 3) == 0) {
+        mdvi_pop_color (dvi);
+    } else if (strncmp (arg, "push", 4) == 0) {
+        /* Find color source: Named, CMYK or RGB */
+        const char *tmp = arg + 4;
+        
+        while (isspace (*tmp)) tmp++;
+
+        if (!strncmp ("rgb", tmp, 3)) {
+            gdouble rgb[3];
+            guchar red, green, blue;
+
+            parse_color (tmp + 4, rgb, 3);
+            
+            red = 255 * rgb[0];
+            green = 255 * rgb[1];
+            blue = 255 * rgb[2];
+
+            mdvi_push_color (dvi, RGB2ULONG (red, green, blue), 0xFFFFFFFF);
+        } else if (!strncmp ("hsb", tmp, 4)) {
+            gdouble hsb[3];
+            guchar red, green, blue;
+
+            parse_color (tmp + 4, hsb, 3);
+            
+            if (hsb2rgb (hsb[0], hsb[1], hsb[2], &red, &green, &blue))
+            mdvi_push_color (dvi, RGB2ULONG (red, green, blue), 0xFFFFFFFF);
+        } else if (!strncmp ("cmyk", tmp, 4)) {
+            gdouble cmyk[4];
+            double r, g, b;
+            guchar red, green, blue;
+            
+            parse_color (tmp + 5, cmyk, 4);
+
+            r = 1.0 - cmyk[0] - cmyk[3];
+            if (r < 0.0)
+                r = 0.0;
+            g = 1.0 - cmyk[1] - cmyk[3];
+            if (g < 0.0)
+                g = 0.0;
+            b = 1.0 - cmyk[2] - cmyk[3];
+            if (b < 0.0)
+                b = 0.0;
+
+            red = r * 255 + 0.5;
+            green = g * 255 + 0.5;
+            blue = b * 255 + 0.5;
+            
+            mdvi_push_color (dvi, RGB2ULONG (red, green, blue), 0xFFFFFFFF);
+        } else if (!strncmp ("gray ", tmp, 5)) {
+            gdouble gray;
+            guchar rgb;
+
+            parse_color (tmp + 5, &gray, 1);
+
+            rgb = gray * 255 + 0.5;
+
+            mdvi_push_color (dvi, RGB2ULONG (rgb, rgb, rgb), 0xFFFFFFFF);
+        } 
+//        else {
+//            GdkColor color;
+//            
+//            if (gdk_color_parse (tmp, &color)) {
+//                guchar red, green, blue;
+//
+//                red = color.red * 255 / 65535.;
+//                green = color.green * 255 / 65535.;
+//                blue = color.blue * 255 / 65535.;
+//
+//                mdvi_push_color (dvi, RGB2ULONG (red, green, blue), 0xFFFFFFFF);
+//            }
+//        }
+    }
+}
+
 
